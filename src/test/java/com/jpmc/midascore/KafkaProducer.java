@@ -16,9 +16,7 @@ public class KafkaProducer {
     }
 
     public void send(String transactionLine) {
-        //transactionLine = "6, 7, 122.86"
-        String[] transactionData = transactionLine.split("\n");
-
-        kafkaTemplate.send(topic, new Transaction(Long.parseLong(transactionData[0].split(", ")[0]), Long.parseLong(transactionData[0].split(", ")[1]), Float.parseFloat(transactionData[0].split(", ")[2])));
+        String[] transactionData = transactionLine.split(", ");
+        kafkaTemplate.send(topic, new Transaction(Long.parseLong(transactionData[0]), Long.parseLong(transactionData[1]), Float.parseFloat(transactionData[2])));
     }
 }
