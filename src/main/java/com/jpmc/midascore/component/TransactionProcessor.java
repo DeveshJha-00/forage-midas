@@ -5,6 +5,7 @@ import com.jpmc.midascore.entity.UserRecord;
 import com.jpmc.midascore.foundation.Transaction;
 import com.jpmc.midascore.repository.TransactionRepository;
 import com.jpmc.midascore.repository.UserRepository;
+import com.jpmc.midascore.service.IncentiveService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -17,10 +18,15 @@ public class TransactionProcessor {
     
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
+    private final DatabaseConduit databaseConduit;
+    private final IncentiveService incentiveService;
+
     
-    public TransactionProcessor(UserRepository userRepository, TransactionRepository transactionRepository) {
+    public TransactionProcessor(UserRepository userRepository, TransactionRepository transactionRepository, DatabaseConduit databaseConduit, IncentiveService incentiveService) {
         this.userRepository = userRepository;
         this.transactionRepository = transactionRepository;
+        this.databaseConduit = databaseConduit;
+        this.incentiveService = incentiveService;
     }
     
     @KafkaListener(topics = "${general.kafka-topic}")
@@ -50,15 +56,17 @@ public class TransactionProcessor {
         }
         
         // Process the transaction
+        float incentiveAmount = incentiveService.fetchIncentive(transaction).getAmount();
         sender.setBalance(sender.getBalance() - transaction.getAmount());
-        recipient.setBalance(recipient.getBalance() + transaction.getAmount());
-        
+        recipient.setBalance(recipient.getBalance() + transaction.getAmount() + incentiveAmount);
+
+
         // Save updated balances
         userRepository.save(sender);
         userRepository.save(recipient);
         
         // Record the transaction
-        TransactionRecord transactionRecord = new TransactionRecord(sender, recipient, transaction.getAmount());
+        TransactionRecord transactionRecord = new TransactionRecord(sender, recipient, transaction.getAmount(), incentiveAmount);
         transactionRepository.save(transactionRecord);
         
         logger.info("Transaction processed successfully. {} -> {}: ${}", 
